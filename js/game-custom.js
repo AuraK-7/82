@@ -303,7 +303,7 @@ function getCustomHintText() {
 }
 
 function updateCustomPageHint() {
-  document.getElementById('customPageHint').textContent = `当前选中: ${_customActivePos} 位 · 点击右侧球员卡片即可填入`;
+  document.getElementById('customPageHint').textContent = '选' + _customActivePos + '位 · 点击卡片选择';
 }
 
 /** Update sim button */
@@ -327,9 +327,8 @@ function randomFillRemaining() {
     const pickedKeys = getPickedKeys(pos);
     const eligible = all.filter(p => p.positions.includes(pos) && !pickedKeys.has(playerKey(p)));
     if (eligible.length > 0) {
-      // Pick from top 10 randomly for variety
-      const pool = eligible.slice(0, Math.min(10, eligible.length));
-      _customPicks[pos] = pool[Math.floor(Math.random() * pool.length)];
+      // Truly random from all eligible players
+      _customPicks[pos] = eligible[Math.floor(Math.random() * eligible.length)];
     }
   });
 
@@ -383,7 +382,7 @@ function enterCustomMode() {
   updateCustomSimButton();
   document.getElementById('customSearchBar').value = '';
   document.getElementById('customHint').textContent = '👆 点击左侧位置卡片开始选择';
-  document.getElementById('customPageHint').textContent = '当前选中: PG 位 · 点击右侧球员卡片即可填入';
+  document.getElementById('customPageHint').textContent = '选PG位 · 点击卡片选择';
 }
 
 /** Toggle removed — custom mode is now standalone */
@@ -605,17 +604,16 @@ function renderSalaryPlayerList() {
     const key = playerKey(p);
     const isPicked = pickedKeys.has(key);
     const salary = getPlayerSalary(p);
-    const colors = TEAM_COLORS[p.team] || ['#333','#555'];
-    return `<div class="player-list-row${isPicked ? ' picked-row' : ''}" onclick="${isPicked ? '' : "pickSalaryPlayer('" + key.replace(/'/g, "\'") + "')"}">
-      <span class="pos-color-dot" style="background:${colors[0]};display:inline-block;width:7px;height:7px;border-radius:50%;flex-shrink:0;"></span>
-      <span class="list-name">${p.name}</span>
-      <span class="list-team-decade">${teamCN(p.team)} · ${p.decade}</span>
-      <span class="list-stats">
-        <span class="list-stat">PTS${p.pts}</span>
-        <span class="list-stat">REB${p.reb}</span>
-        <span class="list-stat">AST${p.ast}</span>
-      </span>
-      <span class="list-rating">💰${salary}M</span>
+    return `<div class="player-card${isPicked ? ' picked-row' : ''}" onclick="${isPicked ? '' : "pickSalaryPlayer('" + key.replace(/'/g, "\\'") + "')"}">
+      <div class="player-name">${p.name}</div>
+      <div class="player-positions">${fmtPositions(p.positions)}</div>
+      <div class="player-team">${teamCN(p.team)} · ${p.decade}</div>
+      <div class="player-stats">
+        <span class="stat-pill" style="background:rgba(241,196,15,0.12);color:#f1c40f;">💰${salary}M</span>
+        <span class="stat-pill"><span class="stat-label">PTS</span> ${p.pts}</span>
+        <span class="stat-pill"><span class="stat-label">REB</span> ${p.reb}</span>
+        <span class="stat-pill"><span class="stat-label">AST</span> ${p.ast}</span>
+      </div>
     </div>`;
   }).join('');
 }

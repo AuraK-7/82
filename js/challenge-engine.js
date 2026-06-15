@@ -35,8 +35,8 @@ class ChallengeEngine {
   isCorrect(pos, player) { return true; }
 
   /** Handle player selection */
-  handlePick(pos, playerKey) {
-    const player = this.allPlayers.find(p => playerKey(p) === playerKey);
+  handlePick(pos, pKey) {
+    const player = this.allPlayers.find(p => playerKey(p) === pKey);
     if (!player) return;
 
     const correct = this.isCorrect(pos, player);
@@ -105,31 +105,31 @@ class ChallengeEngine {
 
     container.innerHTML = options.map(p => {
       const key = playerKey(p);
-      const colors = TEAM_COLORS[p.team] || ['#333','#555'];
-      return `<div class="player-card" onclick="window._activeChallenge.handlePick('${pos}', '${key.replace(/'/g, "\\'")}')">
+      const meta = this.getPlayerMeta(p);
+      return `<div class="player-card challenge-card" onclick="window._activeChallenge.handlePick('${pos}', '${key.replace(/'/g, "\\'")}')">
         <div class="player-name">${p.name}</div>
         <div class="player-positions">${fmtPositions(p.positions)}</div>
-        <div class="player-team">${teamCN(p.team)} · ${p.decade}</div>
-        <div class="player-stats">
-          <span class="stat-pill"><span class="stat-label">PTS</span> ${p.pts}</span>
-          <span class="stat-pill"><span class="stat-label">REB</span> ${p.reb}</span>
-          <span class="stat-pill"><span class="stat-label">AST</span> ${p.ast}</span>
-        </div>
+        <div class="player-team">${meta}</div>
       </div>`;
     }).join('');
   }
 
   renderChallengeHeader(pos) {
     const hint = document.getElementById('customHint');
+    var roundHint = this.getRoundHint(pos);
     if (hint) {
-      hint.innerHTML = `<span class="ch-round">第 ${this.currentRound + 1}/5 轮 — ${pos}</span>
-        <span class="ch-mistakes">失误: <span>${this.mistakes}</span> 次 (每次 -${this.penaltyWins} 胜场)</span>`;
+      hint.innerHTML = '<span class="ch-round">第 ' + (this.currentRound + 1) + '/5 轮 — ' + pos + '</span> ' +
+        '<span style="color:var(--gold-light);">' + roundHint + '</span>' +
+        '<span class="ch-mistakes">失误: <span>' + this.mistakes + '</span> 次 (-' + this.penaltyWins + ')</span>';
     }
     const sub = document.getElementById('browserSubtitle');
-    if (sub) sub.textContent = this.getRoundHint(pos);
+    if (sub) { sub.style.display = 'none'; }
   }
 
   getRoundHint(pos) { return '选择你认为正确的球员'; }
+
+  /** Override in subclasses — what info to show on player cards */
+  getPlayerMeta(p) { return teamCN(p.team) + ' · ' + p.decade; }
 
   finish() {
     buildGameFromPicks(this.picks, this.name);
@@ -143,11 +143,11 @@ class ChallengeEngine {
   showSetupOverlay(html, onConfirm) {
     const overlay = document.getElementById('challengeSetupOverlay');
     const body = document.getElementById('challengeSetupBody');
-    const btn = document.getElementById('challengeSetupBtn');
     if (!overlay || !body) return;
     body.innerHTML = html;
     overlay.style.display = 'flex';
-    btn.onclick = () => { overlay.style.display = 'none'; onConfirm(); };
+    var btn = document.getElementById('challengeSetupBtn');
+    if (btn) btn.onclick = function() { overlay.style.display = 'none'; onConfirm(); };
   }
 }
 
@@ -184,65 +184,65 @@ class EraChallenge extends ChallengeEngine {
   }
 
   showEraSetup() {
+    this.targetEras = {};
     const decades = ALL_DECADES.filter(function(d) { return this.allPlayers.some(function(p) { return p.decade === d; }); }.bind(this));
-    let html = '<h3 style="color:var(--gold);margin-bottom:8px;">🏆 选择 5 个目标年代</h3>';
-    html += '<p style="color:var(--text-muted);font-size:0.75rem;margin-bottom:12px;">为 5 个位置各分配一个年代，答题者需从选项中找出该年代的球员</p>';
-    html += '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:8px;">';
-    decades.forEach(d => {
-      html += `<span class="decade-pill" id="eraSetup_${d}" onclick="window._activeChallenge.toggleSetupEra('${d}')" style="cursor:pointer;">${d}</span>`;
+    let html = '<h3 style="color:var(--gold);margin-bottom:4px;">🏆 为每个位置分配年代</h3>';
+    html += '<p style="color:var(--text-muted);font-size:0.7rem;margin-bottom:10px;">每个位置绑定一个年代，答题者需找出该年代球员</p>';
+    this.posOrder.forEach(pos => {
+      html += '<div style="display:flex;align-items:center;gap:3px;margin-bottom:3px;flex-wrap:nowrap;overflow-x:auto;">';
+      html += '<span style="min-width:22px;font-family:Oswald;font-weight:700;color:#fff;flex-shrink:0;font-size:0.7rem;">' + pos + '</span>';
+      decades.forEach(d => {
+        html += '<span class="decade-pill era-opt" id="era_' + pos + '_' + d + '" onclick="window._activeChallenge.pickEraForPos(\'' + pos + '\',\'' + d + '\')" style="cursor:pointer;font-size:0.55rem;padding:1px 5px;white-space:nowrap;flex-shrink:0;">' + d + '</span>';
+      });
+      html += '</div>';
     });
-    html += '</div>';
-    html += '<p style="font-size:0.7rem;color:var(--text-muted);margin:8px 0;">已选: <span id="eraSetupCount" style="color:var(--gold-light);">0</span>/5</p>';
-    html += '<div style="display:flex;gap:8px;justify-content:center;">';
-    html += '<button class="btn btn-secondary btn-sm" onclick="window._activeChallenge.randomEras()">🎲 随机分配</button>';
-    html += '<button class="btn btn-gold btn-sm" id="challengeSetupBtn">确认 → 开始挑战</button>';
+    html += '<div style="display:flex;gap:8px;justify-content:center;margin-top:10px;">';
+    html += '<button class="btn btn-secondary btn-sm" onclick="window._activeChallenge.randomEras()">🎲 随机</button>';
+    html += '<button class="btn btn-gold btn-sm" id="challengeSetupBtn" disabled>确认 → 开始</button>';
     html += '</div>';
     this.showSetupOverlay(html, () => this.beginEraChallenge());
   }
 
-  toggleSetupEra(decade) {
-    if (this._setupEras.includes(decade)) {
-      this._setupEras = this._setupEras.filter(d => d !== decade);
-      document.getElementById('eraSetup_' + decade).classList.remove('active');
-    } else if (this._setupEras.length < 5) {
-      this._setupEras.push(decade);
-      document.getElementById('eraSetup_' + decade).classList.add('active');
-    }
-    const el = document.getElementById('eraSetupCount');
-    if (el) el.textContent = this._setupEras.length;
-    const btn = document.getElementById('challengeSetupBtn');
-    if (btn) btn.disabled = this._setupEras.length !== 5;
+  pickEraForPos(pos, decade) {
+    // Remove this decade from any other position
+    Object.keys(this.targetEras).forEach(p => {
+      if (this.targetEras[p] === decade) this.targetEras[p] = null;
+    });
+    this.targetEras[pos] = decade;
+    // Update UI
+    document.querySelectorAll('.era-opt').forEach(el => el.classList.remove('active'));
+    Object.keys(this.targetEras).forEach(p => {
+      if (this.targetEras[p]) {
+        var el = document.getElementById('era_' + p + '_' + this.targetEras[p]);
+        if (el) el.classList.add('active');
+      }
+    });
+    var filled = Object.values(this.targetEras).filter(Boolean).length;
+    var btn = document.getElementById('challengeSetupBtn');
+    if (btn) btn.disabled = filled !== 5;
   }
 
   randomEras() {
     const decades = ALL_DECADES.filter(function(d) { return this.allPlayers.some(function(p) { return p.decade === d; }); }.bind(this));
-    // Shuffle and pick 5
     for (let i = decades.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [decades[i], decades[j]] = [decades[j], decades[i]];
     }
-    this._setupEras = decades.slice(0, 5);
-    // Update UI
-    document.querySelectorAll('[id^="eraSetup_"]').forEach(el => el.classList.remove('active'));
-    this._setupEras.forEach(d => {
-      const el = document.getElementById('eraSetup_' + d);
+    this.posOrder.forEach((pos, i) => { this.targetEras[pos] = decades[i]; });
+    document.querySelectorAll('.era-opt').forEach(el => el.classList.remove('active'));
+    Object.keys(this.targetEras).forEach(p => {
+      var el = document.getElementById('era_' + p + '_' + this.targetEras[p]);
       if (el) el.classList.add('active');
     });
-    const c = document.getElementById('eraSetupCount');
-    if (c) c.textContent = '5';
-    const btn = document.getElementById('challengeSetupBtn');
+    var btn = document.getElementById('challengeSetupBtn');
     if (btn) btn.disabled = false;
   }
 
   beginEraChallenge() {
-    if (this._setupEras.length !== 5) { this.randomEras(); }
-    // Assign eras to positions
-    this.posOrder.forEach((pos, i) => { this.targetEras[pos] = this._setupEras[i]; });
-
-    // Update page hint
+    var filled = Object.values(this.targetEras).filter(Boolean).length;
+    if (filled !== 5) { this.randomEras(); }
     document.getElementById('customPageHint').textContent =
-      `年代: ${this.posOrder.map(p => this.targetEras[p]).join(' · ')}`;
-
+      '年代: ' + this.posOrder.map(function(p) { return this.targetEras[p]; }.bind(this)).join(' · ');
     this.renderRound('PG');
   }
 
@@ -267,6 +267,7 @@ class EraChallenge extends ChallengeEngine {
   getRoundHint(pos) {
     return `找出属于 ${this.targetEras[pos]} 年代的球员！`;
   }
+  getPlayerMeta(p) { return teamCN(p.team); }
 
   renderEmptyRoster() {
     this.posOrder.forEach(pos => {
@@ -372,6 +373,7 @@ class TeamChallenge extends ChallengeEngine {
   getRoundHint(pos) {
     return `找出 ${teamCN(this.lockedTeam)} 的球员！`;
   }
+  getPlayerMeta(p) { return p.decade; }
 }
 
 // ===================================================================

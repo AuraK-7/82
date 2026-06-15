@@ -234,17 +234,17 @@ function showScreen(id) {
     if (img) img.style.display = '';
     document.getElementById('gameHeaderText').style.display = 'none';
   } else if (id === 'screen-game') {
-    header.style.background = '';
+    header.style.background = '#110427';
     header.style.padding = '0';
     if (img) img.style.display = 'none';
     document.getElementById('gameHeaderText').style.display = 'block';
   } else if (id === 'screen-custom') {
-    header.style.background = '';
+    header.style.background = '#110427';
     header.style.padding = '0';
     if (img) img.style.display = 'none';
     document.getElementById('gameHeaderText').style.display = 'none';
   } else {
-    header.style.background = '';
+    header.style.background = '#110427';
     header.style.padding = '0 0 4px';
     if (img) img.style.display = 'none';
   }

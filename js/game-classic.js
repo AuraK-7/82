@@ -1,3 +1,148 @@
+async function startCheatGame() {
+  if (DATA_READY) { await DATA_READY; }
+  _cheatMode = true;
+  showScreen('screen-game');
+
+  // Update header
+  document.getElementById('gameHeaderText').textContent = '💪 冲击82胜';
+
+  // Hide: roster bar, round label, slot machine, spin/skip, player section, search, filter tabs
+  document.getElementById('rosterBar').style.display = 'none';
+  document.getElementById('roundLabel').style.display = 'none';
+  document.getElementById('roundDesc').style.display = 'none';
+  // Zero out margins on slot controls when hidden
+  document.querySelector('.slot-controls').style.marginTop = '0';
+  document.querySelector('.slot-controls-row').style.marginTop = '0';
+  document.getElementById('selectionHint').style.display = 'none';
+  document.querySelector('.slot-machine').style.display = 'none';
+  document.getElementById('spinBtn').style.display = 'none';
+  document.getElementById('skipTeamBtn').style.display = 'none';
+  document.getElementById('skipDecadeBtn').style.display = 'none';
+  document.getElementById('playerSection').style.display = 'none';
+  document.getElementById('cheatSearchRow').style.display = 'none';
+  document.getElementById('filterTabsRow').style.display = 'none';
+
+  // Show cheat controls with formula always visible
+  document.getElementById('cheatControls').style.display = '';
+  document.getElementById('cheatResultsArea').style.display = 'none';
+  document.getElementById('cheatFormulaDecadeRow').style.display = 'none';
+
+  // Reset dropdowns
+  populateCheatDropdowns();
+  document.getElementById('cheatTeamSelect').disabled = false;
+  document.getElementById('cheatDecadeSelect').disabled = false;
+}
+
+function onCheatTeamChange() {
+  var teamVal = document.getElementById('cheatTeamSelect').value;
+  var decadeVal = document.getElementById('cheatDecadeSelect').value;
+  if (teamVal) {
+    populateCheatDecadeSelect(teamVal);
+    if (decadeVal && NBA_DATA[decadeVal] && NBA_DATA[decadeVal][teamVal]) {
+      document.getElementById('cheatDecadeSelect').value = decadeVal;
+    }
+  } else {
+    populateCheatDecadeSelect('');
+  }
+  autoQueryCheat();
+}
+
+function onCheatDecadeChange() {
+  var decadeVal = document.getElementById('cheatDecadeSelect').value;
+  var teamVal = document.getElementById('cheatTeamSelect').value;
+  if (decadeVal) {
+    populateCheatTeamSelect(decadeVal);
+    if (teamVal && NBA_DATA[decadeVal] && NBA_DATA[decadeVal][teamVal]) {
+      document.getElementById('cheatTeamSelect').value = teamVal;
+    }
+    // Update formula with this decade's benchmarks
+    var bench = ERA_BENCHMARKS[decadeVal] || ERA_BENCHMARKS['2020s'];
+    document.getElementById('cheatFormulaDecade').textContent =
+    '  PTS基准 ' + bench.pts + '  |  REB基准 ' + bench.reb + '  |  AST基准 ' + bench.ast + '  |  STL基准 ' + bench.stl + '  |  BLK基准 ' + bench.blk;
+    document.getElementById('cheatFormulaDecadeRow').style.display = '';
+  } else {
+    populateCheatTeamSelect('');
+    document.getElementById('cheatFormulaDecadeRow').style.display = 'none';
+  }
+  autoQueryCheat();
+}
+
+function autoQueryCheat() {
+  var teamVal = document.getElementById('cheatTeamSelect').value;
+  var decadeVal = document.getElementById('cheatDecadeSelect').value;
+  if (teamVal && decadeVal) {
+    renderCheatResults(teamVal, decadeVal);
+  } else {
+    document.getElementById('cheatResultsArea').style.display = 'none';
+  }
+}
+
+function renderCheatResults(team, decade) {
+  var area = document.getElementById('cheatResultsArea');
+  area.style.display = '';
+
+  var players = NBA_DATA[decade] ? (NBA_DATA[decade][team] || []) : [];
+  if (players.length === 0) {
+    area.innerHTML = '<div class="cheat-empty">😅 该球队在此年代没有球员数据</div>';
+    return;
+  }
+
+  // Build player objects with ratings
+  var bench = ERA_BENCHMARKS[decade] || ERA_BENCHMARKS['2020s'];
+  var rated = players.map(function(p) {
+    var positions = p.positions && p.positions.length > 0 ? p.positions : [p.pos || 'SF'];
+    var slotObj = {
+      name: p.name, pos: p.pos, positions: positions,
+      team: team, decade: decade,
+      pts: p.stats.pts, reb: p.stats.reb, ast: p.stats.ast,
+      stl: p.stats.stl ?? 0, blk: p.stats.blk ?? 0
+    };
+    var rating = playerRating(slotObj);
+    return {
+      name: p.name,
+      pts: p.stats.pts,
+      reb: p.stats.reb,
+      ast: p.stats.ast,
+      stl: p.stats.stl,
+      blk: p.stats.blk,
+      rating: rating
+    };
+  });
+
+  // Sort by rating descending
+  rated.sort(function(a, b) { return b.rating - a.rating; });
+
+  // Build compact single-row table (no position column)
+  var html = '';
+  html += '<div class="cheat-source">📋 ' + teamCN(team) + ' · ' + decade + ' — 共 ' + rated.length + ' 名球员</div>';
+  html += '<div class="cheat-table-wrap"><table class="cheat-table cheat-table-compact">';
+  html += '<thead><tr>';
+  html += '<th>#</th><th>球员</th><th class="col-num">PTS</th><th class="col-num">REB</th><th class="col-num">AST</th><th class="col-num">STL</th><th class="col-num">BLK</th><th class="col-rating">评分</th>';
+  html += '</tr></thead><tbody>';
+
+  rated.forEach(function(p, i) {
+    var stlDisplay = (p.stl != null && p.stl > 0) ? p.stl.toFixed(1) : '--';
+    var blkDisplay = (p.blk != null && p.blk > 0) ? p.blk.toFixed(1) : '--';
+    var ratingClass = p.rating >= 90 ? 'rating-s' : p.rating >= 85 ? 'rating-a' : p.rating >= 75 ? 'rating-b' : '';
+    html += '<tr>';
+    html += '<td class="cheat-rank">' + (i + 1) + '</td>';
+    html += '<td class="cheat-name">' + p.name + '</td>';
+    html += '<td class="col-num">' + p.pts.toFixed(1) + '</td>';
+    html += '<td class="col-num">' + p.reb.toFixed(1) + '</td>';
+    html += '<td class="col-num">' + p.ast.toFixed(1) + '</td>';
+    html += '<td class="col-num">' + stlDisplay + '</td>';
+    html += '<td class="col-num">' + blkDisplay + '</td>';
+    html += '<td class="cheat-rating ' + ratingClass + '">' + p.rating + '</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  html += '<div class="cheat-table-footer">共 ' + rated.length + ' 名球员 · 按评分降序</div>';
+
+  area.innerHTML = html;
+}
+
+// ===================================================================
 //  GAME INIT
 // ===================================================================
 async function startGame() {
@@ -5,6 +150,8 @@ async function startGame() {
   if (DATA_READY) {
     await DATA_READY;
   }
+  _cheatMode = false;
+  _cheatSearchQuery = '';
   game = {
     round: 0,
     roster: [],
@@ -21,6 +168,25 @@ async function startGame() {
   pendingPick = null;
   moveState = null;
   showScreen('screen-game');
+
+  // Ensure classic mode UI is visible
+  document.getElementById('gameHeaderText').textContent = '82-0 完美赛季大挑战';
+  // Restore slot control margins
+  document.querySelector('.slot-controls').style.marginTop = '';
+  document.querySelector('.slot-controls-row').style.marginTop = '';
+  document.getElementById('rosterBar').style.display = '';
+  document.getElementById('roundLabel').style.display = '';
+  document.getElementById('selectionHint').style.display = '';
+  document.querySelector('.slot-machine').style.display = '';
+  document.getElementById('spinBtn').style.display = '';
+  document.getElementById('skipTeamBtn').style.display = '';
+  document.getElementById('skipDecadeBtn').style.display = '';
+  document.getElementById('filterTabsRow').style.display = '';
+  // Hide cheat-specific UI
+  document.getElementById('cheatControls').style.display = 'none';
+  document.getElementById('cheatResultsArea').style.display = 'none';
+  document.getElementById('cheatSearchRow').style.display = 'none';
+
   renderRosterBar();
   nextRound();
 }
@@ -111,6 +277,7 @@ function nextRound() {
 
   document.getElementById('roundLabel').textContent = `第 ${game.round + 1} / ${MAX_ROUNDS} 轮`;
   document.getElementById('roundDesc').textContent = '';
+  document.getElementById('roundDesc').style.display = 'none';
   document.getElementById('spinBtn').disabled = false;
   document.getElementById('spinBtn').textContent = '🎰  随机';
   document.getElementById('skipTeamBtn').disabled = true;

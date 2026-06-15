@@ -52,6 +52,11 @@ var DATA_READY = Promise.resolve();
   console.log('NBA_DATA loaded from nba-data.js:', Object.keys(NBA_DATA).length, 'decades, total players:', data.length);
 })();
 
+// Cheat mode state
+var _cheatMode = false;
+var _cheatSearchQuery = '';
+var _cheatSearchTimer = null;
+
 // Filter tab for player selection
 var _filterTab = 'all';
 
@@ -73,6 +78,67 @@ function getPlayers(decade, team) {
 // Helper: get all available teams in a decade
 function getTeams(decade) {
   return Object.keys(NBA_DATA?.[decade] || {});
+}
+
+// Cheat mode: populate team dropdown filtered by selected decade
+function populateCheatTeamSelect(selectedDecade) {
+  var sel = document.getElementById('cheatTeamSelect');
+  if (!sel) return;
+  var currentVal = sel.value;
+  sel.innerHTML = '<option value="">-- 选择球队 --</option>';
+  var teams;
+  if (selectedDecade) {
+    teams = getTeams(selectedDecade);
+  } else {
+    var teamSet = {};
+    ALL_DECADES.forEach(function(d) {
+      getTeams(d).forEach(function(t) { teamSet[t] = true; });
+    });
+    teams = Object.keys(teamSet);
+  }
+  teams.sort();
+  teams.forEach(function(t) {
+    var opt = document.createElement('option');
+    opt.value = t;
+    opt.textContent = teamCN(t) + ' (' + t + ')';
+    if (t === currentVal) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  if (!Array.from(sel.options).some(function(o) { return o.value === currentVal; })) {
+    sel.value = '';
+  }
+}
+
+// Cheat mode: populate decade dropdown filtered by selected team
+function populateCheatDecadeSelect(selectedTeam) {
+  var sel = document.getElementById('cheatDecadeSelect');
+  if (!sel) return;
+  var currentVal = sel.value;
+  sel.innerHTML = '<option value="">-- 选择年代 --</option>';
+  var decades;
+  if (selectedTeam) {
+    decades = ALL_DECADES.filter(function(d) {
+      return NBA_DATA[d] && NBA_DATA[d][selectedTeam];
+    });
+  } else {
+    decades = ALL_DECADES.slice();
+  }
+  decades.forEach(function(d) {
+    var opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = d;
+    if (d === currentVal) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  if (!decades.includes(currentVal)) {
+    sel.value = '';
+  }
+}
+
+// Cheat mode: initial population of both dropdowns (all options)
+function populateCheatDropdowns() {
+  populateCheatTeamSelect('');
+  populateCheatDecadeSelect('');
 }
 
 // Team names - no longer needed as we use full names directly

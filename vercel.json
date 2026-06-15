@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/82-0完美赛季大挑战_files/__ai_app.html" }
+  ]
+}

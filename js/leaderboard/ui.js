@@ -273,7 +273,7 @@ var BB82 = BB82 || {};
           body.innerHTML = '<div class="lb-empty">📭 还没有上传过记录</div>';
           return;
         }
-        body.innerHTML = '<div class="seg-header">📋 共 <strong>' + d.length + '</strong> 条记录</div>' + BB82.UI.Leaderboard._renderList(d, false);
+        body.innerHTML = '<div class="seg-header">📋 共 <strong>' + d.length + '</strong> 条记录</div>' + BB82.UI.Leaderboard._renderList(d, false, true);
       });
     }
   };
@@ -408,46 +408,33 @@ var BB82 = BB82 || {};
     // ══════════════════════════════════════════════════════════════
     //  我的记录（弹窗）
     // ══════════════════════════════════════════════════════════════
-    _loadMyRecords: function() {
-      var body = this._body(), self = this; if (!body) return;
-      body.innerHTML = '<div class="lb-loading"><div class="lb-spinner"></div><p>加载中...</p></div>';
-
-      A.fetchMyRecords().then(function(res) {
-        if (!self._body()||!self._modal()) return;
-        if (res.error) { body.innerHTML = '<div class="lb-empty">😵 加载失败</div>'; return; }
-        var d = res.data||[];
-        if (!d.length) {
-          body.innerHTML =
-            '<div class="lb-empty">📭 你还没有上传过记录</div>' +
-            '<div style="text-align:center;margin-top:6px;font-size:0.7rem;color:var(--text-muted);">昵称：' + U.escapeHtml(S.nickname||"未设置") + '</div>';
-          return;
-        }
-        body.innerHTML =
-          '<div class="seg-header">📋 我的记录 · <strong>' + d.length + '</strong> 条</div>' +
-          self._renderList(d, false, true);
-      });
-    },
-
-    // ══════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════════════
     //  列表渲染（复用）
     // ══════════════════════════════════════════════════════════════
+    /** 将 record 编码为安全 data 属性值（处理单引号/特殊字符） */
+    _dataR: function(r) {
+      return encodeURIComponent(JSON.stringify({
+        username: r.username, wins: r.wins, record: r.record,
+        player_names: r.player_names, decades: r.decades, teams: r.teams,
+        created_at: r.created_at, share_code: r.share_code
+      }));
+    },
+
     _renderList: function(records, showRank, showShare) {
       var h = '';
-      // ── 领奖台 ────────────────────────────────────────────
+      // ── 领奖台（前三名，不突变原数据） ──────────────────────
       if (showRank && records.length > 0) {
-        var podium = [null,null,null]; // [#2左, #1中, #3右]
+        var podium = [null,null,null], podiumIdx = [-1,-1,-1]; // [#2左, #1中, #3右]
         var r = 0, pw = -1;
         for (var i = 0; i < records.length && r < 3; i++) {
-          if (records[i].wins !== pw) { r++; pw = records[i].wins; var slot = r===1?1:r===2?0:2; podium[slot] = records[i]; podium[slot]._podium = true; }
+          if (records[i].wins !== pw) { r++; pw = records[i].wins; var slot = r===1?1:r===2?0:2; podium[slot] = records[i]; podiumIdx[slot] = i; }
         }
         h += '<div class="lb-podium">';
-        var hts = ['90px','120px','80px'], lbs = ['🥈','🥇','🥉'];
-        var pbs = ['12px','25px','5px']; // 底部垫高
+        var hts = ['90px','120px','80px'], lbs = ['🥈','🥇','🥉'], pbs = ['12px','25px','5px'];
         for (var pi = 0; pi < 3; pi++) {
           var p = podium[pi];
           if (!p) { h += '<div class="lb-podium-spot" style="height:'+hts[pi]+';padding-bottom:'+pbs[pi]+';"></div>'; continue; }
-          var jd = JSON.stringify({ username: p.username, wins: p.wins, record: p.record, player_names: p.player_names, decades: p.decades, teams: p.teams, created_at: p.created_at });
-          h += '<div class="lb-podium-spot" style="height:'+hts[pi]+';padding-bottom:'+pbs[pi]+';cursor:pointer;" onclick="BB82.Share.view(JSON.parse(this.dataset.r))" data-r=\'' + jd + '\'>' +
+          h += '<div class="lb-podium-spot" style="height:'+hts[pi]+';padding-bottom:'+pbs[pi]+';cursor:pointer;" onclick="BB82.Share.view(JSON.parse(decodeURIComponent(this.dataset.r)))" data-r="' + this._dataR(p) + '">' +
             '<div class="lb-podium-medal">'+lbs[pi]+'</div>' +
             '<div class="lb-podium-name">'+U.escapeHtml(p.username||"匿名球迷")+'</div>' +
             '<div class="lb-podium-wins">'+p.wins+' 胜</div>' +
@@ -456,13 +443,13 @@ var BB82 = BB82 || {};
         h += '</div>';
       }
 
-      // ── 列表 ──────────────────────────────────────────────
+      // ── 列表（跳过已上领奖台的条目） ────────────────────
       h += '<div class="lb-list">';
       var rank = 0, prevWins = -1;
       for (var j = 0; j < records.length; j++) {
         var rec = records[j];
         if (rec.wins !== prevWins) { rank++; prevWins = rec.wins; }
-        if (showRank && rank <= 3 && rec._podium) continue;
+        if (showRank && rank <= 3 && podiumIdx.indexOf(j) !== -1) continue;
         h += this._rowHtml(rec, showRank ? rank : 0, showShare);
       }
       h += '</div>';
@@ -475,8 +462,7 @@ var BB82 = BB82 || {};
       var shareH = showShare
         ? '<button class="lb-share-btn" onclick="event.stopPropagation();BB82.Share.record(\'' + (r.share_code||"") + '\',\'' + U.escapeHtml(r.username||"匿名球迷").replace(/'/g,"\\'") + '\',' + r.wins + ')" title="分享">📤</button>'
         : '';
-      var jd = JSON.stringify({ username: r.username, wins: r.wins, record: r.record, player_names: r.player_names, decades: r.decades, teams: r.teams, created_at: r.created_at }).replace(/'/g, "&#39;");
-      return '<div class="lb-row" style="cursor:pointer;" onclick="BB82.Share.view(JSON.parse(this.dataset.r))" data-r=\'' + jd + '\'>' +
+      return '<div class="lb-row" style="cursor:pointer;" onclick="BB82.Share.view(JSON.parse(decodeURIComponent(this.dataset.r)))" data-r="' + this._dataR(r) + '">' +
         '  <div class="lb-row-left">' + rankH +
         '    <div class="lb-row-info"><div class="lb-username">' + U.escapeHtml(r.username||"匿名球迷") + '</div>' +
         '      <div class="lb-time">' + U.escapeHtml(ts) + '</div></div>' +

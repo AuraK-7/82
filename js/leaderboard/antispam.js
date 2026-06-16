@@ -33,30 +33,37 @@ var BB82 = BB82 || {};
     /** 服务端级联：user → fingerprint → username → roster */
     checkServer: function(playerNames, username, uid, fp, callback) {
       var self = this;
+      var safeDone = false;
+      function done(result) {
+        if (!safeDone) { safeDone = true; callback(result); }
+      }
 
       // 1. 同 user_id 30s
       A.latestByUser(uid).then(function(r) {
         if (self._inCooldown(r, C.COOLDOWN_FP_MS))
-          return callback({ ok: false, reason: "提交太频繁，请30秒后再试" });
+          return done({ ok: false, reason: "提交太频繁，请30秒后再试" });
 
         // 2. 同指纹 30s（兜底，覆盖未登录场景）
         A.latestByFingerprint(fp).then(function(rf) {
           if (self._inCooldown(rf, C.COOLDOWN_FP_MS))
-            return callback({ ok: false, reason: "提交太频繁，请30秒后再试" });
+            return done({ ok: false, reason: "提交太频繁，请30秒后再试" });
 
           // 3. 同昵称 2min
           A.latestByUsername(username).then(function(rn) {
             if (self._inCooldown(rn, C.COOLDOWN_NAME_MS))
-              return callback({ ok: false, reason: "该昵称2分钟内已提交" });
+              return done({ ok: false, reason: "该昵称2分钟内已提交" });
 
             // 4. 同阵容 5min
             A.latestByPlayers(playerNames).then(function(rp) {
               if (self._inCooldown(rp, C.COOLDOWN_ROSTER_MS))
-                return callback({ ok: false, reason: "相同阵容已提交" });
-              callback({ ok: true });
+                return done({ ok: false, reason: "相同阵容已提交" });
+              done({ ok: true });
             });
           });
         });
+      }).catch(function() {
+        // 网络异常时放行，避免静默卡死
+        done({ ok: true });
       });
     }
 

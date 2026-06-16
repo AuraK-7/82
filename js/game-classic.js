@@ -1,145 +1,154 @@
-async function startCheatGame() {
+async function startFunGame() {
   if (DATA_READY) { await DATA_READY; }
-  _cheatMode = true;
+  _funMode = true;
   showScreen('screen-game');
+
+  // 初始化 game 状态（跟经典模式一样）
+  game = {
+    round: 0,
+    roster: [],
+    slots: { PG: null, SG: null, SF: null, PF: null, C: null },
+    usedDecades: [],
+    usedCombos: [],
+    skipTeam: 0,
+    skipDecade: 0,
+    currentTeam: null,
+    currentDecade: null,
+    spun: false,
+    skipPending: null
+  };
+  pendingPick = null;
+  moveState = null;
 
   // Update header
   document.getElementById('gameHeaderText').textContent = '💪 冲击82胜';
 
-  // Hide: roster bar, round label, slot machine, spin/skip, player section, search, filter tabs
-  document.getElementById('rosterBar').style.display = 'none';
+  // 显示阵容栏（跟经典模式一致）
+  document.getElementById('rosterBar').style.display = '';
+  document.getElementById('selectionHint').style.display = '';
+  // 隐藏经典模式的轮次/老虎机/跳过按钮
   document.getElementById('roundLabel').style.display = 'none';
   document.getElementById('roundDesc').style.display = 'none';
-  // Zero out margins on slot controls when hidden
   document.querySelector('.slot-controls').style.marginTop = '0';
   document.querySelector('.slot-controls-row').style.marginTop = '0';
-  document.getElementById('selectionHint').style.display = 'none';
   document.querySelector('.slot-machine').style.display = 'none';
   document.getElementById('spinBtn').style.display = 'none';
   document.getElementById('skipTeamBtn').style.display = 'none';
   document.getElementById('skipDecadeBtn').style.display = 'none';
-  document.getElementById('playerSection').style.display = 'none';
-  document.getElementById('cheatSearchRow').style.display = 'none';
   document.getElementById('filterTabsRow').style.display = 'none';
 
-  // Show cheat controls with formula always visible
-  document.getElementById('cheatControls').style.display = '';
-  document.getElementById('cheatResultsArea').style.display = 'none';
-  document.getElementById('cheatFormulaDecadeRow').style.display = 'none';
+  // 显示自选控件 + 球员区
+  document.getElementById('funControls').style.display = '';
+  document.getElementById('funResultsArea').style.display = 'none';
+  document.getElementById('funSimRow').style.display = 'none';
+  document.getElementById('funSearchRow').style.display = 'none';
+  document.getElementById('playerSection').style.display = 'none';
 
   // Reset dropdowns
-  populateCheatDropdowns();
-  document.getElementById('cheatTeamSelect').disabled = false;
-  document.getElementById('cheatDecadeSelect').disabled = false;
+  populateFunDropdowns();
+  document.getElementById('funTeamSelect').value = '';
+  document.getElementById('funDecadeSelect').value = '';
+  document.getElementById('funTeamSelect').disabled = false;
+  document.getElementById('funDecadeSelect').disabled = false;
+
+  renderRosterBar();
+  updateFunHeader();
+  document.getElementById('playerHint').textContent = '选择球队和年代，然后点击球员加入阵容';
 }
 
-function onCheatTeamChange() {
-  var teamVal = document.getElementById('cheatTeamSelect').value;
-  var decadeVal = document.getElementById('cheatDecadeSelect').value;
+function onFunTeamChange() {
+  var teamVal = document.getElementById('funTeamSelect').value;
+  var decadeVal = document.getElementById('funDecadeSelect').value;
   if (teamVal) {
-    populateCheatDecadeSelect(teamVal);
+    populateFunDecadeSelect(teamVal);
     if (decadeVal && NBA_DATA[decadeVal] && NBA_DATA[decadeVal][teamVal]) {
-      document.getElementById('cheatDecadeSelect').value = decadeVal;
+      document.getElementById('funDecadeSelect').value = decadeVal;
     }
   } else {
-    populateCheatDecadeSelect('');
+    populateFunDecadeSelect('');
   }
-  autoQueryCheat();
+  autoQueryFun();
 }
 
-function onCheatDecadeChange() {
-  var decadeVal = document.getElementById('cheatDecadeSelect').value;
-  var teamVal = document.getElementById('cheatTeamSelect').value;
+function onFunDecadeChange() {
+  var decadeVal = document.getElementById('funDecadeSelect').value;
+  var teamVal = document.getElementById('funTeamSelect').value;
   if (decadeVal) {
-    populateCheatTeamSelect(decadeVal);
+    populateFunTeamSelect(decadeVal);
     if (teamVal && NBA_DATA[decadeVal] && NBA_DATA[decadeVal][teamVal]) {
-      document.getElementById('cheatTeamSelect').value = teamVal;
+      document.getElementById('funTeamSelect').value = teamVal;
     }
-    // Update formula with this decade's benchmarks
-    var bench = ERA_BENCHMARKS[decadeVal] || ERA_BENCHMARKS['2020s'];
-    document.getElementById('cheatFormulaDecade').textContent =
-    '  PTS基准 ' + bench.pts + '  |  REB基准 ' + bench.reb + '  |  AST基准 ' + bench.ast + '  |  STL基准 ' + bench.stl + '  |  BLK基准 ' + bench.blk;
-    document.getElementById('cheatFormulaDecadeRow').style.display = '';
   } else {
-    populateCheatTeamSelect('');
-    document.getElementById('cheatFormulaDecadeRow').style.display = 'none';
+    populateFunTeamSelect('');
   }
-  autoQueryCheat();
+  autoQueryFun();
 }
 
-function autoQueryCheat() {
-  var teamVal = document.getElementById('cheatTeamSelect').value;
-  var decadeVal = document.getElementById('cheatDecadeSelect').value;
+function autoQueryFun() {
+  var teamVal = document.getElementById('funTeamSelect').value;
+  var decadeVal = document.getElementById('funDecadeSelect').value;
   if (teamVal && decadeVal) {
-    renderCheatResults(teamVal, decadeVal);
+    game.currentTeam = teamVal;
+    game.currentDecade = decadeVal;
+    renderFunPlayerGrid(teamVal, decadeVal);
+    document.getElementById('playerSection').style.display = '';
   } else {
-    document.getElementById('cheatResultsArea').style.display = 'none';
+    document.getElementById('funResultsArea').style.display = 'none';
   }
 }
 
-function renderCheatResults(team, decade) {
-  var area = document.getElementById('cheatResultsArea');
-  area.style.display = '';
-
-  var players = NBA_DATA[decade] ? (NBA_DATA[decade][team] || []) : [];
-  if (players.length === 0) {
-    area.innerHTML = '<div class="cheat-empty">😅 该球队在此年代没有球员数据</div>';
-    return;
-  }
-
-  // Build player objects with ratings
+/** 自选模式专用渲染：数据+评分，按评分降序，显示所有人 */
+function renderFunPlayerGrid(team, decade) {
+  var grid = document.getElementById('playerGrid');
   var bench = ERA_BENCHMARKS[decade] || ERA_BENCHMARKS['2020s'];
-  var rated = players.map(function(p) {
-    var positions = p.positions && p.positions.length > 0 ? p.positions : [p.pos || 'SF'];
+  var players = NBA_DATA[decade] ? (NBA_DATA[decade][team] || []) : [];
+  var draftedNames = game.roster.map(function(r) { return r.name; });
+
+  // 过滤已选，计算评分
+  var rated = [];
+  players.forEach(function(p) {
+    if (draftedNames.includes(p.name)) return;
+    var positionsArr = p.positions && p.positions.length > 0 ? p.positions : [p.pos || 'SF'];
     var slotObj = {
-      name: p.name, pos: p.pos, positions: positions,
+      name: p.name, pos: p.pos, positions: positionsArr,
       team: team, decade: decade,
       pts: p.stats.pts, reb: p.stats.reb, ast: p.stats.ast,
       stl: p.stats.stl ?? 0, blk: p.stats.blk ?? 0
     };
     var rating = playerRating(slotObj);
-    return {
-      name: p.name,
-      pts: p.stats.pts,
-      reb: p.stats.reb,
-      ast: p.stats.ast,
-      stl: p.stats.stl,
-      blk: p.stats.blk,
+    rated.push({
+      name: p.name, pos: p.pos, positions: positionsArr,
+      pts: p.stats.pts, reb: p.stats.reb, ast: p.stats.ast,
+      stl: p.stats.stl ?? 0, blk: p.stats.blk ?? 0,
       rating: rating
-    };
+    });
   });
 
-  // Sort by rating descending
+  // 按评分降序
   rated.sort(function(a, b) { return b.rating - a.rating; });
 
-  // Build compact single-row table (no position column)
-  var html = '';
-  html += '<div class="cheat-source">📋 ' + teamCN(team) + ' · ' + decade + ' — 共 ' + rated.length + ' 名球员</div>';
-  html += '<div class="cheat-table-wrap"><table class="cheat-table cheat-table-compact">';
-  html += '<thead><tr>';
-  html += '<th>#</th><th>球员</th><th class="col-num">PTS</th><th class="col-num">REB</th><th class="col-num">AST</th><th class="col-num">STL</th><th class="col-num">BLK</th><th class="col-rating">评分</th>';
-  html += '</tr></thead><tbody>';
+  if (rated.length === 0) {
+    grid.innerHTML = '<div class="no-players"><div class="icon">😅</div><p>该球队在此年代没有可用球员</p></div>';
+    document.getElementById('playerHint').textContent = '该球队在此年代没有可用球员';
+    return;
+  }
 
-  rated.forEach(function(p, i) {
-    var stlDisplay = (p.stl != null && p.stl > 0) ? p.stl.toFixed(1) : '--';
-    var blkDisplay = (p.blk != null && p.blk > 0) ? p.blk.toFixed(1) : '--';
-    var ratingClass = p.rating >= 90 ? 'rating-s' : p.rating >= 85 ? 'rating-a' : p.rating >= 75 ? 'rating-b' : '';
-    html += '<tr>';
-    html += '<td class="cheat-rank">' + (i + 1) + '</td>';
-    html += '<td class="cheat-name">' + p.name + '</td>';
-    html += '<td class="col-num">' + p.pts.toFixed(1) + '</td>';
-    html += '<td class="col-num">' + p.reb.toFixed(1) + '</td>';
-    html += '<td class="col-num">' + p.ast.toFixed(1) + '</td>';
-    html += '<td class="col-num">' + stlDisplay + '</td>';
-    html += '<td class="col-num">' + blkDisplay + '</td>';
-    html += '<td class="cheat-rating ' + ratingClass + '">' + p.rating + '</td>';
-    html += '</tr>';
-  });
-
-  html += '</tbody></table></div>';
-  html += '<div class="cheat-table-footer">共 ' + rated.length + ' 名球员 · 按评分降序</div>';
-
-  area.innerHTML = html;
+  document.getElementById('playerHint').textContent = '点击球员加入阵容 · 按评分降序';
+  grid.innerHTML = '<div class="fun-player-list">' + rated.map(function(p) {
+    var posDataAttr = encodeURIComponent(JSON.stringify(p.positions));
+    var stlDisp = (p.stl != null && p.stl > 0) ? p.stl.toFixed(1) : '--';
+    var blkDisp = (p.blk != null && p.blk > 0) ? p.blk.toFixed(1) : '--';
+    var rc = p.rating >= 90 ? 'rating-s' : p.rating >= 85 ? 'rating-a' : p.rating >= 75 ? 'rating-b' : '';
+    return '<div class="fun-player-card" data-positions=\'' + posDataAttr + '\' onclick="selectPlayer(this, \'' + p.name.replace(/'/g, "\\'") + '\', \'' + (p.pos || 'SF') + '\', ' + p.pts + ', ' + p.reb + ', ' + p.ast + ', ' + (p.stl ?? 0) + ', ' + (p.blk ?? 0) + ')">' +
+      '<div class="fun-pc-name">' + p.name + '</div>' +
+      '<div class="fun-pc-stats">' +
+        '<span>PTS ' + p.pts.toFixed(1) + '</span>' +
+        '<span>REB ' + p.reb.toFixed(1) + '</span>' +
+        '<span>AST ' + p.ast.toFixed(1) + '</span>' +
+      '</div>' +
+      '<div class="fun-pc-rating ' + rc + '">' + p.rating + '</div>' +
+    '</div>';
+  }).join('') + '</div>';
 }
 
 // ===================================================================
@@ -150,8 +159,8 @@ async function startGame() {
   if (DATA_READY) {
     await DATA_READY;
   }
-  _cheatMode = false;
-  _cheatSearchQuery = '';
+  _funMode = false;
+  _funSearchQuery = '';
   game = {
     round: 0,
     roster: [],
@@ -182,10 +191,10 @@ async function startGame() {
   document.getElementById('skipTeamBtn').style.display = '';
   document.getElementById('skipDecadeBtn').style.display = '';
   document.getElementById('filterTabsRow').style.display = '';
-  // Hide cheat-specific UI
-  document.getElementById('cheatControls').style.display = 'none';
-  document.getElementById('cheatResultsArea').style.display = 'none';
-  document.getElementById('cheatSearchRow').style.display = 'none';
+  // Hide fun-specific UI
+  document.getElementById('funControls').style.display = 'none';
+  document.getElementById('funResultsArea').style.display = 'none';
+  document.getElementById('funSearchRow').style.display = 'none';
 
   renderRosterBar();
   nextRound();
@@ -259,6 +268,26 @@ function renderRosterBar() {
   
   bar.innerHTML = html;
   updateSkipBadges();
+}
+
+/** 自选模式：根据已选球员实时计算预估评分 */
+function updateFunHeader() {
+  var header = document.getElementById('gameHeaderText');
+  if (!header) return;
+  var slotted = ['PG','SG','SF','PF','C']
+    .map(function(pos) { return game.slots[pos]; })
+    .filter(Boolean);
+  if (slotted.length === 0) {
+    header.innerHTML = '<span style="font-size:0.78rem;">💪 自选 · 选择你的5名球员</span>';
+    return;
+  }
+  var ratings = slotted.map(function(p) { return playerRating(p); });
+  var product = ratings.reduce(function(a, b) { return a * b; }, 1);
+  var geoMean = Math.pow(product, 1 / ratings.length);
+  var teamOvr = Math.round(geoMean * 1.1 * 10) / 10;
+  var wins = Math.round(82 * Math.pow(Math.min(teamOvr / 110, 1), 2.2));
+  if (wins === 64) wins = 65; else if (wins === 18) wins = 17; else if (wins === 54) wins = 55;
+  header.innerHTML = '<span style="font-size:0.78rem;">💪 自选 · 预估 <b style="color:var(--gold);">' + teamOvr + '</b> 分 ≈ <b style="color:var(--gold);">' + wins + '</b> 胜 (' + slotted.length + '/5)</span>';
 }
 
 
@@ -375,12 +404,10 @@ function getSlotResult() {
 // ===================================================================
 //  SKIP MECHANICS
 // ===================================================================
-var skipResolve = null;
-
 function confirmSkip(type) {
   // If a draft confirmation is showing, clear it first
   if (pendingPick) {
-    document.querySelectorAll('.player-card.selected').forEach(c => c.classList.remove('selected'));
+    document.querySelectorAll('.player-card.selected,.fun-player-card.selected').forEach(c => c.classList.remove('selected'));
     pendingPick = null;
   }
   const modal = document.getElementById('skipModal');
@@ -578,7 +605,7 @@ var moveState = null;
 function clearPending() {
   pendingPick = null;
   moveState = null;
-  document.querySelectorAll('.player-card.selected').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('.player-card.selected,.fun-player-card.selected').forEach(c => c.classList.remove('selected'));
   renderRosterBar();
   const hint = document.getElementById('playerHint');
   if (hint) hint.textContent = '点击球员加入阵容';
@@ -588,7 +615,7 @@ function selectPlayer(el, name, pos, pts, reb, ast, stl, blk) {
   // If there's a pending pick or move, cancel it
   if (pendingPick || moveState) { clearPending(); }
   
-  document.querySelectorAll('.player-card').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('.player-card,.fun-player-card').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
 
   // Get eligible positions from data attribute
@@ -606,7 +633,7 @@ function selectPlayer(el, name, pos, pts, reb, ast, stl, blk) {
   }
 
   // Highlight empty eligible slots for the user to click
-  pendingPick = { name, pos, pts, reb, ast, stl, blk, positions };
+  pendingPick = { name, pos, pts, reb, ast, stl, blk, positions, team: game.currentTeam, decade: game.currentDecade };
   const posNames = emptyEligible.join('/');
   document.getElementById('playerHint').textContent = `点击上方闪烁的方框将 ${name} 放入 (${posNames})`;
   renderRosterBar();
@@ -657,35 +684,51 @@ function onFilledSlotClick(pos) {
   renderRosterBar();
 }
 
-// Legacy alias for drag-drop compatibility
-function showPositionPicker() {}
-
 function confirmDraftWith(pick) {
   const { name, pos, pts, reb, ast, stl, blk, assignedPos } = pick;
   pendingPick = null;
   moveState = null;
 
-  document.querySelectorAll('.player-card.selected').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('.player-card.selected,.fun-player-card.selected').forEach(c => c.classList.remove('selected'));
   document.getElementById('skipModal').style.display = 'none';
 
   // Place in the assigned position slot
   const playerPositions = pick.positions || getPositions(pos);
-  game.slots[assignedPos] = { name, pos, positions: playerPositions, assignedPos, team: game.currentTeam, decade: game.currentDecade, pts, reb, ast, stl, blk };
+  var selTeam = pick.team || game.currentTeam;
+  var selDecade = pick.decade || game.currentDecade;
+  game.slots[assignedPos] = { name, pos, positions: playerPositions, assignedPos, team: selTeam, decade: selDecade, pts, reb, ast, stl, blk };
   game.roster.push(game.slots[assignedPos]);
   game.usedDecades.push(game.currentDecade);
   game.round++;
 
   renderRosterBar();
 
-  // Hide player section
-  document.getElementById('playerSection').style.display = 'none';
+  // 自选模式：实时更新预估评分
+  if (_funMode) updateFunHeader();
+
+  // Hide player section (自选模式保持可见)
+  if (!_funMode) {
+    document.getElementById('playerSection').style.display = 'none';
+  }
   document.getElementById('spinBtn').disabled = true;
   document.getElementById('skipTeamBtn').disabled = true;
   document.getElementById('skipDecadeBtn').disabled = true;
   document.getElementById('playerHint').textContent = `✓ ${name} → ${assignedPos} 已选入！`;
 
   setTimeout(() => {
-    if (game.round >= MAX_ROUNDS) {
+    if (_funMode) {
+      // 自选模式：选满 5 人才显示模拟按钮
+      if (game.round >= MAX_ROUNDS) {
+        document.getElementById('playerHint').textContent = '✅ 5名球员已就绪！点击下方按钮开始模拟';
+        document.getElementById('playerSection').style.display = 'none';
+        document.getElementById('funSimRow').style.display = '';
+      } else {
+        document.getElementById('playerHint').textContent = '✓ ' + name + ' → ' + assignedPos + ' 已选入！还需 ' + (MAX_ROUNDS - game.round) + ' 人';
+        document.getElementById('playerSection').style.display = '';
+      }
+      document.getElementById('teamReel').style.borderColor = '';
+      document.getElementById('decadeReel').style.borderColor = '';
+    } else if (game.round >= MAX_ROUNDS) {
       runSimulation();
     } else {
       document.getElementById('teamReel').style.borderColor = 'var(--gold)';

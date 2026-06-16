@@ -28,7 +28,7 @@
       </div>
       <div class="menu-buttons">
         <button class="btn btn-primary" onclick="handleStartGame()" style="width:100%;max-width:280px;justify-content:center;">▶&nbsp; 开始游戏</button>
-        <button class="btn btn-secondary" onclick="startCheatGame()" style="width:100%;max-width:280px;justify-content:center;border-color:var(--accent);color:var(--accent-light);">💪 自选模式</button>
+        <button class="btn btn-secondary" onclick="startFunGame()" style="width:100%;max-width:280px;justify-content:center;border-color:var(--accent);color:var(--accent-light);">💪 自选娱乐</button>
                 <button class="btn btn-secondary" onclick="showLeaderboard()" style="width:100%;max-width:280px;justify-content:center;border-color:var(--gold);color:var(--gold-light);">🏆 排行榜</button>
         <button class="btn btn-secondary" onclick="toggleHowTo()" style="width:100%;max-width:280px;justify-content:center;">📖 &nbsp;玩法说明</button>
       </div>
@@ -89,62 +89,26 @@
         <button class="btn btn-secondary btn-xs" id="skipDecadeBtn" onclick="directSkip('decade')" disabled="" style="margin-left:8px;">🔄 更换年代 <span id="skipDecadeCount">1次</span></button>
       </div>
 
-      <!-- Cheat Mode Controls -->
-      <div class="cheat-controls" id="cheatControls" style="display:none;">
-        <!-- Formula always visible at top -->
-        <div class="cheat-formula" id="cheatFormula">
-          <div class="cheat-formula-main">
-            <span class="formula-highlight">评分</span>
-            <span class="formula-eq">=</span>
-            <span class="formula-highlight">60</span>
-            <span class="formula-op">+</span>
-            <span class="formula-highlight">40</span>
-            <span class="formula-op">×</span>
-            <span class="formula-term">位置加权分</span>
-            <span class="formula-op">+</span>
-            <span class="formula-term">加成</span>
-          </div>
-          <div class="cheat-formula-detail">
-            <div class="formula-row">
-              <span class="formula-label">位置加权分 =</span>
-              <span class="formula-desc">Σ(该位置权重 × 球员数据 ÷ 该年代基准)</span>
-            </div>
-            <div class="formula-row formula-weights">
-              <span class="formula-label">权重表</span>
-              <span class="weight-grid">
-                <span class="weight-item"><b>PG</b> 分.40 板.10 助.35 断.10 帽.05</span>
-                <span class="weight-item"><b>SG</b> 分.45 板.10 助.20 断.20 帽.05</span>
-                <span class="weight-item"><b>SF</b> 分.45 板.15 助.20 断.15 帽.05</span>
-                <span class="weight-item"><b>PF</b> 分.40 板.30 助.10 断.10 帽.10</span>
-                <span class="weight-item"><b>C</b> 分.40 板.35 助.10 断.05 帽.10</span>
-              </span>
-            </div>
-            <div class="formula-row" id="cheatFormulaDecadeRow" style="display:none;">
-              <span class="formula-label">年代基准</span>
-              <span class="formula-desc" id="cheatFormulaDecade"></span>
-            </div>
-            <div class="formula-row">
-              <span class="formula-label">额外加成</span>
-              <span class="formula-desc">每个额外位置 <b>+3</b> · 传奇加成 <b>+2.5</b> · 数据超基准 <b>1.25 次幂</b>放大</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="cheat-select-row">
-          <div class="cheat-select-group">
-            <label class="cheat-select-label">🏀 球队</label>
-            <select class="cheat-select" id="cheatTeamSelect" onchange="onCheatTeamChange()">
+      <!-- Fun Mode Controls -->
+      <div class="fun-controls" id="funControls" style="display:none;">
+        <div class="fun-select-row">
+          <div class="fun-select-group">
+            <label class="fun-select-label">🏀 球队</label>
+            <select class="fun-select" id="funTeamSelect" onchange="onFunTeamChange()">
               <option value="">-- 选择球队 --</option>
             </select>
           </div>
-          <div class="cheat-select-group">
-            <label class="cheat-select-label">📅 年代</label>
-            <select class="cheat-select" id="cheatDecadeSelect" onchange="onCheatDecadeChange()">
+          <div class="fun-select-group">
+            <label class="fun-select-label">📅 年代</label>
+            <select class="fun-select" id="funDecadeSelect" onchange="onFunDecadeChange()">
               <option value="">-- 选择年代 --</option>
             </select>
           </div>
         </div>
-        <div class="cheat-results-area" id="cheatResultsArea" style="display:none;"></div>
+        <div class="fun-results-area" id="funResultsArea" style="display:none;"></div>
+        <div id="funSimRow" style="display:none;text-align:center;margin-top:12px;">
+          <button class="btn btn-gold" onclick="runSimulation()" style="width:220px;">🏆 胜利结算</button>
+        </div>
       </div>
 
     </div>
@@ -155,8 +119,8 @@
         <h3 style="font-family:'Oswald', sans-serif; color:var(--gold); white-space:nowrap;">选择你的球员</h3>
         <span style="font-size:0.7rem; color:var(--text-muted);" id="playerHint">点击球员加入阵容</span>
       </div>
-      <div class="cheat-search-row" id="cheatSearchRow" style="display:none;">
-        <input type="text" class="cheat-search-input" id="cheatSearchInput" placeholder="🔍 搜索球员姓名..." oninput="onCheatSearch()">
+      <div class="fun-search-row" id="funSearchRow" style="display:none;">
+        <input type="text" class="fun-search-input" id="funSearchInput" placeholder="🔍 搜索球员姓名..." oninput="onFunSearch()">
       </div>
       <div class="filter-tabs" id="filterTabsRow">
         <span class="filter-tab active" data-tab="all" onclick="setFilterTab('all')">全部</span>
@@ -313,7 +277,7 @@
 
       <div class="result-actions">
         <div class="uploaded-hint" id="uploadedHint" style="display:none;"></div>
-        <button class="btn btn-gold" onclick="showLeaderboard()" style="width:220px;justify-content:center;">📊 查看全服排行榜</button>
+        <button class="btn btn-gold" onclick="showLeaderboard()" style="width:220px;justify-content:center;">📊 查看排行</button>
         <button class="btn btn-secondary" onclick="continueSameMode()" style="width:220px;justify-content:center;border-color:var(--success);color:var(--success);">🔄 再来一局</button>
         <button class="btn btn-primary" onclick="generatePoster()" style="width:220px;justify-content:center;background:linear-gradient(135deg,#7c3aed,#a855f7);box-shadow:0 4px 20px rgba(124,58,237,0.4);">📷 生成海报</button>
         <button class="btn btn-secondary" onclick="showMenu()" style="width:220px;justify-content:center;">🏠 返回主菜单</button>
@@ -350,7 +314,18 @@
       <li><strong>跳过机会</strong> — 每局<strong>1次换队 + 1次换年代</strong>，策略性使用。</li>
       <li><strong>非线性模拟</strong> — 82场赛季预测采用曲线模型。越接近82胜越难，只有完美阵容才能82-0。</li>
     </ul>
-    <h4 style="color:var(--accent-light);margin-top:12px;">💪 自选模式</h4>
+    <h5 style="color:var(--gold);margin:8px 0 4px;">📊 球员评分公式</h5>
+    <div style="font-size:0.7rem;color:var(--text-muted);line-height:1.5;">
+      <b>评分 = 60 + 40 × 位置加权分 + 额外加成</b><br>
+      位置加权分 = Σ(该位置权重 × 球员数据 ÷ 该年代基准)<br>
+      权重：<b>PG</b> 分.40 板.10 助.35 断.10 帽.05<br>
+            <b>SG</b> 分.45 板.10 助.20 断.20 帽.05<br>
+      　　　<b>SF</b> 分.45 板.15 助.20 断.15 帽.05<br>
+            <b>PF</b> 分.40 板.30 助.10 断.10 帽.10<br>
+      　　　<b>C</b> 分.40 板.35 助.10 断.05 帽.10<br>
+      加成：每额外位置 <b>+3</b> · 传奇 <b>+2.5</b> · 数据超基准 1.25次幂放大
+    </div>
+    <h4 style="color:var(--accent-light);margin-top:12px;">💪 自选娱乐</h4>
     <ul>
       <li><strong>自由查询</strong> — 通过下拉菜单指定<strong>球队</strong>和<strong>年代</strong>，自动列出该组合下的全部球员。</li>
       <li><strong>评分排序</strong> — 球员按<strong>综合评分降序</strong>排列，与经典模式使用完全相同的计算公式。</li>

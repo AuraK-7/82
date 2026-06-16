@@ -52,10 +52,10 @@ var DATA_READY = Promise.resolve();
   console.log('NBA_DATA loaded from nba-data.js:', Object.keys(NBA_DATA).length, 'decades, total players:', data.length);
 })();
 
-// Cheat mode state
-var _cheatMode = false;
-var _cheatSearchQuery = '';
-var _cheatSearchTimer = null;
+// Fun mode state
+var _funMode = false;
+var _funSearchQuery = '';
+var _funSearchTimer = null;
 
 // Filter tab for player selection
 var _filterTab = 'all';
@@ -80,9 +80,9 @@ function getTeams(decade) {
   return Object.keys(NBA_DATA?.[decade] || {});
 }
 
-// Cheat mode: populate team dropdown filtered by selected decade
-function populateCheatTeamSelect(selectedDecade) {
-  var sel = document.getElementById('cheatTeamSelect');
+// Fun mode: populate team dropdown filtered by selected decade
+function populateFunTeamSelect(selectedDecade) {
+  var sel = document.getElementById('funTeamSelect');
   if (!sel) return;
   var currentVal = sel.value;
   sel.innerHTML = '<option value="">-- 选择球队 --</option>';
@@ -109,9 +109,9 @@ function populateCheatTeamSelect(selectedDecade) {
   }
 }
 
-// Cheat mode: populate decade dropdown filtered by selected team
-function populateCheatDecadeSelect(selectedTeam) {
-  var sel = document.getElementById('cheatDecadeSelect');
+// Fun mode: populate decade dropdown filtered by selected team
+function populateFunDecadeSelect(selectedTeam) {
+  var sel = document.getElementById('funDecadeSelect');
   if (!sel) return;
   var currentVal = sel.value;
   sel.innerHTML = '<option value="">-- 选择年代 --</option>';
@@ -135,14 +135,11 @@ function populateCheatDecadeSelect(selectedTeam) {
   }
 }
 
-// Cheat mode: initial population of both dropdowns (all options)
-function populateCheatDropdowns() {
-  populateCheatTeamSelect('');
-  populateCheatDecadeSelect('');
+// Fun mode: initial population of both dropdowns (all options)
+function populateFunDropdowns() {
+  populateFunTeamSelect('');
+  populateFunDecadeSelect('');
 }
-
-// Team names - no longer needed as we use full names directly
-const TEAM_NAMES = {};
 
 const ALL_DECADES = ["1960s","1970s","1980s","1990s","2000s","2010s","2020s"];
 const MAX_ROUNDS = 5;

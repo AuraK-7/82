@@ -12,7 +12,7 @@ var BB82 = BB82 || {};
 
     _detectMode: function() {
       if (typeof _salaryMode !== "undefined" && _salaryMode) return "salary";
-      if (typeof _cheatMode  !== "undefined" && _cheatMode)  return "cheat";
+      if (typeof _funMode  !== "undefined" && _funMode)  return "fun";
       var m = (typeof game !== "undefined" && game._modeName) || "";
       if (m === "自选模式")   return "custom";
       if (m === "工资帽模式") return "salary";
@@ -26,7 +26,7 @@ var BB82 = BB82 || {};
     continueMode: function() {
       switch (this._detectMode()) {
         case "classic":   startGame();      break;
-        case "cheat":     startCheatGame(); break;
+        case "fun":     startFunGame(); break;
         case "custom":    enterCustomMode(); break;
         case "salary":    enterSalaryCapMode(); break;
         case "era-cross": showMenu(); setTimeout(function(){ enterEraChallenge(); },300);     break;
@@ -36,8 +36,10 @@ var BB82 = BB82 || {};
       }
     },
 
-    /** 自动上传当前结算结果（全量上传） */
+    /** 自动上传当前结算结果（自选不上传） */
     autoUpload: function() {
+      var mode = window._lastGameMode || this._detectMode();
+      if (mode === "fun" || mode === "custom") return;  // 自选模式禁止上传
       var el = document.getElementById("finalRecord");
       if (!el) return;
       var wins = parseInt((el.textContent||"").split("-")[0], 10);
@@ -54,8 +56,11 @@ var BB82 = BB82 || {};
       if (typeof runSimulation !== "function") return;
       var _orig = runSimulation, self = this;
       runSimulation = function() {
-        window._lastGameMode = self._detectMode();
+        var mode = self._detectMode();
+        window._lastGameMode = mode;
         _orig();
+        // 自选 / 自定义模式不上传
+        if (mode === "fun" || mode === "custom") return;
         setTimeout(function(){ self.autoUpload(); }, 150);
       };
     }

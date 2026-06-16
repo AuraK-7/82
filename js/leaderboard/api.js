@@ -10,7 +10,7 @@ var BB82 = BB82 || {};
 
   ns.API = {
 
-    _t: function() { return ns.Supabase.get().from(C.TABLE); },
+    _t: function() { var sb = ns.Supabase.get(); return sb ? sb.from(C.TABLE) : null; },
 
     // ── 写入 ────────────────────────────────────────────────────────
     insert: function(row) {

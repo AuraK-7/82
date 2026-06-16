@@ -14,6 +14,15 @@ var BB82 = BB82 || {};
       return window.location.origin + window.location.pathname + "?code=" + shareCode;
     },
 
+    /** 查看阵容详情（弹窗） */
+    view: function(r) {
+      var self = this;
+      var overlay = this._buildOverlay("🏀 阵容详情");
+      document.body.appendChild(overlay);
+      overlay.addEventListener("click", function(e){ if (e.target===overlay) self._closeView(); });
+      document.getElementById("sharedRecordBody").innerHTML = this._renderView(r);
+    },
+
     /** 分享排行榜记录（使用 share_code 而非自增 id） */
     record: function(shareCode, username, wins) {
       var url = this.buildUrl(shareCode);
@@ -39,6 +48,10 @@ var BB82 = BB82 || {};
     },
 
     _loadByCode: function(code) {
+      // 清理地址栏分享码
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState({}, "", window.location.origin + window.location.pathname);
+      }
       var self = this;
       var overlay = this._buildOverlay();
       document.body.appendChild(overlay);
@@ -74,13 +87,13 @@ var BB82 = BB82 || {};
       });
     },
 
-    _buildOverlay: function() {
+    _buildOverlay: function(title) {
       var o = document.createElement("div");
       o.id = "sharedRecordOverlay"; o.className = "modal-overlay lb-overlay";
       o.style.cssText = "display:flex;z-index:10000;";
       o.innerHTML =
         '<div class="lb-modal">'+
-        '  <div class="lb-header"><h2 class="lb-title">🏀 阵容分享</h2><button class="lb-close-btn" onclick="BB82.Share._closeView()">✕</button></div>'+
+        '  <div class="lb-header"><h2 class="lb-title">' + (title || "🏀 阵容分享") + '</h2><button class="lb-close-btn" onclick="BB82.Share._closeView()">✕</button></div>'+
         '  <div class="lb-body" id="sharedRecordBody"><div class="lb-loading"><div class="lb-spinner"></div><p>加载中...</p></div></div>'+
         '  <div class="lb-footer">'+
         '    <button class="btn btn-gold btn-sm" onclick="BB82.Share._closeView();handleStartGame();" style="min-width:140px;">🎮 我也来挑战</button>'+

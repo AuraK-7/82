@@ -82,7 +82,30 @@ var BB82 = BB82 || {};
         _sb = supabase.createClient(ns.CONFIG.SUPABASE_URL, ns.CONFIG.SUPABASE_KEY);
         return _sb;
       }
-      return null;
+      // CDN 未加载时返回安全 mock
+      console.warn("[82-0] Supabase CDN not loaded, using mock");
+      return ns.Supabase._mock();
+    },
+
+    /** 安全 mock：CDN 加载失败时所有查询返回空数据 */
+    _mock: function() {
+      var chain = function() { return chain; };
+      chain.then = function(fn) { return Promise.resolve({ data: [], error: null }).then(fn); };
+      chain.single = function() { return chain; };
+      chain.from = function() { return chain; };
+      chain.select = function() { return chain; };
+      chain.insert = function() { return chain; };
+      chain.update = function() { return chain; };
+      chain.eq = function() { return chain; };
+      chain.gte = function() { return chain; };
+      chain.lte = function() { return chain; };
+      chain.order = function() { return chain; };
+      chain.limit = function() { return chain; };
+      chain.is = function() { return chain; };
+      chain.contains = function() { return chain; };
+      chain.neq = function() { return chain; };
+      chain.match = function() { return chain; };
+      return chain;
     }
   };
 

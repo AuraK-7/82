@@ -300,7 +300,7 @@ var BB82 = BB82 || {};
       return [
         '<div class="lb-modal">',
         '  <div class="lb-header">',
-        '    <h2 class="lb-title">🏆 全服排行榜</h2>',
+        '    <h2 class="lb-title">🏆 排行榜</h2>',
         '    <button class="lb-close-btn" onclick="BB82.UI.Leaderboard.close()">✕</button>',
         '  </div>',
         '  <div class="lb-tabs" id="lbTabs">',
@@ -351,7 +351,7 @@ var BB82 = BB82 || {};
     _renderSegments: function(allWins) {
       var total = allWins.length;
       var segs  = C.SEGMENTS;
-      var h = '<div class="seg-header">🏀 共 <strong>' + total + '</strong> 次参与</div><div class="seg-list">';
+      var h = '<div class="seg-list">';
 
       // 1) 先算各段人数，收集有数据的段
       var filled = [];
@@ -382,7 +382,7 @@ var BB82 = BB82 || {};
           '</div>';
       });
 
-      return h + '</div>';
+      return h + '</div><div class="seg-header">🏀 共 <strong>' + total + '</strong> 次参与</div>';
     },
 
     // ══════════════════════════════════════════════════════════════
@@ -401,7 +401,7 @@ var BB82 = BB82 || {};
           body.innerHTML = '<div class="lb-empty">🏀 '+m+'暂无记录，快来创造历史！</div>';
           return;
         }
-        body.innerHTML = '<div class="seg-header">' + (self._period==="today"?"☀️ 今日":"📅 本周") + ' Top 20</div>' + self._renderList(d, true);
+        body.innerHTML = self._renderList(d, true, false);
       });
     },
 
@@ -424,44 +424,68 @@ var BB82 = BB82 || {};
         }
         body.innerHTML =
           '<div class="seg-header">📋 我的记录 · <strong>' + d.length + '</strong> 条</div>' +
-          self._renderList(d, false);
+          self._renderList(d, false, true);
       });
     },
 
     // ══════════════════════════════════════════════════════════════
     //  列表渲染（复用）
     // ══════════════════════════════════════════════════════════════
-    _renderList: function(records, showRank) {
-      var h = '<div class="lb-list">';
-      var rank = 0, prevWins = -1;
-      var medals = ["🥇","🥈","🥉"];
-      records.forEach(function(r, i) {
-        // 同胜场同排名
-        if (r.wins !== prevWins) { rank = i + 1; prevWins = r.wins; }
-        var rankH = "";
-        if (showRank) {
-          rankH = rank <= 3
-            ? '<span class="lb-rank lb-rank-' + rank + '">' + medals[rank-1] + '</span>'
-            : '<span class="lb-rank lb-rank-num">' + rank + '</span>';
+    _renderList: function(records, showRank, showShare) {
+      var h = '';
+      // ── 领奖台 ────────────────────────────────────────────
+      if (showRank && records.length > 0) {
+        var podium = [null,null,null]; // [#2左, #1中, #3右]
+        var r = 0, pw = -1;
+        for (var i = 0; i < records.length && r < 3; i++) {
+          if (records[i].wins !== pw) { r++; pw = records[i].wins; var slot = r===1?1:r===2?0:2; podium[slot] = records[i]; podium[slot]._podium = true; }
         }
-        var names = U.toArray(r.player_names);
-        var prev  = names.map(function(n){ return String(n).split("-").pop(); }).join(" · ");
-        var ts    = r.created_at ? U.timeAgo(r.created_at) : "";
-        h +=
-          '<div class="lb-row">' +
-          '  <div class="lb-row-left">' + rankH +
-          '    <div class="lb-row-info"><div class="lb-username">' + U.escapeHtml(r.username||"匿名球迷") + '</div>' +
-          '      <div class="lb-players">' + U.escapeHtml(prev) + '</div>' +
-          '      <div class="lb-time">' + U.escapeHtml(ts) + '</div></div>' +
-          '  </div>' +
-          '  <div class="lb-row-right">' +
-          '    <span class="lb-wins">' + r.wins + ' 胜</span>' +
-          '    <span class="lb-record">' + U.escapeHtml(r.record||"") + '</span>' +
-          '    <button class="lb-share-btn" onclick="BB82.Share.record(\'' + (r.share_code||"") + '\',\'' + U.escapeHtml(r.username||"匿名球迷").replace(/'/g,"\\'") + '\',' + r.wins + ')" title="分享">📤</button>' +
-          '  </div>' +
+        h += '<div class="lb-podium">';
+        var hts = ['90px','120px','80px'], lbs = ['🥈','🥇','🥉'];
+        var pbs = ['12px','25px','5px']; // 底部垫高
+        for (var pi = 0; pi < 3; pi++) {
+          var p = podium[pi];
+          if (!p) { h += '<div class="lb-podium-spot" style="height:'+hts[pi]+';padding-bottom:'+pbs[pi]+';"></div>'; continue; }
+          var jd = JSON.stringify({ username: p.username, wins: p.wins, record: p.record, player_names: p.player_names, decades: p.decades, teams: p.teams, created_at: p.created_at });
+          h += '<div class="lb-podium-spot" style="height:'+hts[pi]+';padding-bottom:'+pbs[pi]+';cursor:pointer;" onclick="BB82.Share.view(JSON.parse(this.dataset.r))" data-r=\'' + jd + '\'>' +
+            '<div class="lb-podium-medal">'+lbs[pi]+'</div>' +
+            '<div class="lb-podium-name">'+U.escapeHtml(p.username||"匿名球迷")+'</div>' +
+            '<div class="lb-podium-wins">'+p.wins+' 胜</div>' +
           '</div>';
-      });
-      return h + '</div>';
+        }
+        h += '</div>';
+      }
+
+      // ── 列表 ──────────────────────────────────────────────
+      h += '<div class="lb-list">';
+      var rank = 0, prevWins = -1;
+      for (var j = 0; j < records.length; j++) {
+        var rec = records[j];
+        if (rec.wins !== prevWins) { rank++; prevWins = rec.wins; }
+        if (showRank && rank <= 3 && rec._podium) continue;
+        h += this._rowHtml(rec, showRank ? rank : 0, showShare);
+      }
+      h += '</div>';
+      return h;
+    },
+
+    _rowHtml: function(r, rank, showShare) {
+      var rankH = rank > 0 ? '<span class="lb-rank lb-rank-num">' + rank + '</span>' : '';
+      var ts    = r.created_at ? U.timeAgo(r.created_at) : "";
+      var shareH = showShare
+        ? '<button class="lb-share-btn" onclick="event.stopPropagation();BB82.Share.record(\'' + (r.share_code||"") + '\',\'' + U.escapeHtml(r.username||"匿名球迷").replace(/'/g,"\\'") + '\',' + r.wins + ')" title="分享">📤</button>'
+        : '';
+      var jd = JSON.stringify({ username: r.username, wins: r.wins, record: r.record, player_names: r.player_names, decades: r.decades, teams: r.teams, created_at: r.created_at }).replace(/'/g, "&#39;");
+      return '<div class="lb-row" style="cursor:pointer;" onclick="BB82.Share.view(JSON.parse(this.dataset.r))" data-r=\'' + jd + '\'>' +
+        '  <div class="lb-row-left">' + rankH +
+        '    <div class="lb-row-info"><div class="lb-username">' + U.escapeHtml(r.username||"匿名球迷") + '</div>' +
+        '      <div class="lb-time">' + U.escapeHtml(ts) + '</div></div>' +
+        '  </div>' +
+        '  <div class="lb-row-right">' +
+        '    <span class="lb-wins">' + r.wins + ' 胜</span>' +
+        shareH +
+        '  </div>' +
+        '</div>';
     }
   };
 

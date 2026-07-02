@@ -19,7 +19,7 @@
     "db:migrate": "tsx db/migrate.ts",
     "analyze": "ANALYZE=true next build",
     "test:e2e": "playwright test",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
